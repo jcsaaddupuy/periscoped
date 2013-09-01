@@ -1,4 +1,4 @@
-#*-*coding: utf-8 *-*
+# -*- coding: utf-8 -*-
 #!/usr/bin/python2.7
 
 import logging
@@ -167,7 +167,8 @@ class Periscoped(object):
 
   def get_hash(self, path):
     basepath = self.get_short_filename(path)
-    return str(md5.new(basepath).hexdigest())
+    return md5.new(basepath).hexdigest()
+
   def import_lib(self, lib_folder):
     self.log.info("Importing '%s'"%(lib_folder))
     force = self.options.force is not None and self.options.force
@@ -206,7 +207,6 @@ class Periscoped(object):
    
         self.save_file(row[0], next_in, False)
        
-      self.log.info("Running subtitles search for %s items"%(len(rows)))
       self.log.info("*"*50)
       self.log.info("Periscoped %s subtitles" %len(subs))
       for s in subs:
@@ -223,7 +223,7 @@ class Periscoped(object):
     self.log.info("Cleaning database...")
     rows = [row for row in self.db.conn.execute('''select hash, path from files''')]
     dropped=0
-    print len(rows)
+    self.log.info("%s files in the database."%(len(rows)))
     for row in rows:
       ash = row[0]
       path=row[1]
