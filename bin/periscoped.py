@@ -69,7 +69,7 @@ class Periscoped(object):
     
     self.cache_folder = self.get_cache_folder()
     self.log.debug("Cache folder : '%s'"%(self.cache_folder))
-    self.config = ConfigParser.SafeConfigParser({"lang": "", "plugins" : "" })
+    self.config = ConfigParser.SafeConfigParser()
 
     self.read_config()
     self.db=self.init_db()
@@ -185,15 +185,16 @@ class Periscoped(object):
       subs = []
       for row in rows:
         sub=p.downloadSubtitle(row[0], p.preferedLanguages)
-        next_in=None
+        next_in=int(row[1])
         # Sub found
         if sub is not None:
           subs.append(sub)
+          next_in=None
         else:
           # sub not found increasing the time before retrying it.
-          if int(row[1]) == 0:
+          if next_in == 0:
             next_in=1
-          next_in=next_in*self.retry_factor
+          next_in=self.retry_factor*next_in
           self.log.info("Could not find a subtitle. Retrying in %s min."%(self.run_each+next_in))
    
         self.save_file(row[0], next_in, False)
