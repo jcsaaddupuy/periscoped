@@ -153,9 +153,17 @@ class Periscoped(object):
       logging.basicConfig(level=logging.INFO)
 
   def get_cache_folder(self):
-    home = os.path.expanduser("~")
-    home = os.path.expanduser("/tmp")
-    return os.path.join(home, ".config", "periscope")
+    if not self.options.cache_folder:
+      try:
+        import xdg.BaseDirectory as bd
+        self.options.cache_folder = os.path.join(bd.xdg_config_home, "periscope")
+      except:
+        home = os.path.expanduser("~")
+        if home == "~":
+          log.error("Could not generate a cache folder at the home location using XDG (freedesktop). You must specify a --cache-config folder where the cache and config will be located (always use the same folder).")
+          exit()
+        self.options.cache_folder = os.path.join(home, ".config", "periscope")
+    return self.options.cache_folder
 
 
   def recursive_import(self, path, force=False):
@@ -166,7 +174,7 @@ class Periscoped(object):
     elif os.path.isfile(path):
       # Add mkv mimetype to the list
       self.insert_file(path, 0, force)
-  
+
   def is_supported(self, path):
     mimetypes.add_type("video/x-matroska", ".mkv")
     mimetype = mimetypes.guess_type(path)[0]
@@ -176,16 +184,16 @@ class Periscoped(object):
     self.log.debug("Importing '%s'"%(path))
     if self.is_supported(path):
       self.save_file(path, next_in, not force)
-      
+
 
   def get_short_filename(self, path):
-      return os.path.splitext(path)[0]
-  
+    return os.path.splitext(path)[0]
+
   def has_sub(self, path):
-      basepath = self.get_short_filename(path)
-      return (os.path.exists(basepath+'.srt') or os.path.exists(basepath + '.sub')) 
+    basepath = self.get_short_filename(path)
+    return (os.path.exists(basepath+'.srt') or os.path.exists(basepath + '.sub')) 
   def is_sub(self, path):
-      return path.endswith('.srt') or path.endswith('.sub')
+    return path.endswith('.srt') or path.endswith('.sub')
 
   def save_file(self, path, next_in, upsert=True):
     basepath = self.get_short_filename(path)
@@ -245,7 +253,7 @@ class Periscoped(object):
             next_in=self.retry_factor*next_in
             self.log.info("Could not find a subtitle. Retrying in %s min."%(self.run_each+next_in)) 
         self.save_file(path, next_in, False)
-       
+
       self.log.info("*"*50)
       self.log.info("Periscoped %s subtitles" %len(subs))
       for s in subs:
