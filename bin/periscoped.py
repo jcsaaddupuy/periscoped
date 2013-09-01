@@ -70,14 +70,35 @@ class Periscoped(object):
     self.cache_folder = self.get_cache_folder()
     self.log.debug("Cache folder : '%s'"%(self.cache_folder))
     self.config = ConfigParser.SafeConfigParser({"lang": "", "plugins" : "" })
-    self.config_file = os.path.join(self.cache_folder, "config")
 
+    self.read_config()
+    self.db=self.init_db()
+
+  def read_config(self):
+    self.config_file = os.path.join(self.cache_folder, "config")
     if os.path.exists(self.config_file):
       self.config.read(self.config_file)
     else:
       raise Exception("config file %s does not exists"%(self.config_file))
+    self.log.debug("Read configuration")
 
-    self.db=self.init_db()
+    self.log.debug("Trying to read key run_each")
+    self.run_each=self.config.get("Periscoped","run_each")
+    if self.run_each == "":
+      self.run_each=10
+      self.log.debug("Could not read key run_each. Using default value '%s'"%(self.run_each))
+    else:
+      self.log.debug("Read key run_each. Using value '%s'"%(self.run_each))
+    self.run_each=int(self.run_each)
+
+    self.retry_factor=self.config.get("Periscoped","retry_factor")
+    if self.retry_factor == "":
+      self.retry_factor=1.5
+      self.log.debug("Could not read key retry_factor. Using default value '%s'"%(self.retry_factor))
+    else:
+      self.log.debug("Read key retry_factor. Using value '%s'"%(self.retry_factor))
+    self.retry_factor=float(self.retry_factor)
+
 
   def init_db(self):
     db_name="periscoped"
@@ -146,8 +167,6 @@ class Periscoped(object):
     self.log.debug("Force : %s"%(force))
     self.recursive_import(lib_folder, force)
 
-
-
   def run(self):
     self.log.info("Running subtitle downloader")
     p = periscope.Periscope(self.cache_folder)
@@ -165,11 +184,19 @@ class Periscoped(object):
       self.log.info("Running subtitles search for %s items"%(len(rows)))
       subs = []
       for row in rows:
-        sub=None
-        #p.downloadSubtitle(row[0], p.preferedLanguages)
-        self.save_file(row[0], row[1]+10, False)
+        sub=p.downloadSubtitle(row[0], p.preferedLanguages)
+        next_in=None
+        # Sub found
         if sub is not None:
           subs.append(sub)
+        else:
+          # sub not found increasing the time before retrying it.
+          if int(row[1]) == 0:
+            next_in=1
+          next_in=next_in*self.retry_factor
+          self.log.info("Could not find a subtitle. Retrying in %s min."%(self.run_each+next_in))
+   
+        self.save_file(row[0], next_in, False)
        
       self.log.info("Running subtitles search for %s items"%(len(rows)))
       self.log.info("*"*50)
@@ -178,18 +205,17 @@ class Periscoped(object):
         self.log.info(s['lang'] + " - " + s['subtitlepath'])
       self.log.info("*"*50)
 
-      self.log.info("Waiting for next iteration")
-      time.sleep(10*60)
-      self.log.info(s['lang'] + " - " + s['subtitlepath'])
-      self.log.info("*"*50)
-
-      self.log.info("Waiting for next iteration")
-      time.sleep(10*60)
+      self.log.info("Waiting for next iteration (%s)"%(self.run_each))
+      time.sleep(self.run_each*60)
+  def purge(self):
+    pass
 
   def main(self):
     self.log.info("Hello Periscoped")
     if self.options.import_lib:
       self.import_lib(self.options.import_lib[0])
+    if self.options.purge:
+      self.purge()
     if self.options.run:
       self.run()
 
@@ -205,6 +231,8 @@ def main():
   parser.add_option("--db", action="append", dest="db_name", help="database name")
 
   parser.add_option("--import", action="append", dest="import_lib", help="import video library")
+  parser.add_option("--purge", action="append", dest="purge", help="delete non existing files from database")
+
   parser.add_option("--run", action="store_true", dest="run", help="run the subtitle downloader")
   parser.add_option("--force", action="store_true", dest="force", help="force the operation")
 
