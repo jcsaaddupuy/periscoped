@@ -59,6 +59,10 @@ class PeriscopedDb(object):
       [ash, path, has_sub, last_seen, ash, next_in, ash, next_run]
       )
 
+  def delete(self, ash):
+    with(self.conn) as conn:
+      conn.execute(''' delete from files where hash = ? ''', [ash,])
+
 class Periscoped(object):
 
   def __init__(self, options):
@@ -147,13 +151,13 @@ class Periscoped(object):
 
   def save_file(self, path, next_in, upsert=True):
     basepath = self.get_short_filename(path)
-    ash = md5.new(basepath).hexdigest()
+    ash = self.get_hash(path)
+
     has_sub = self.has_sub(path)
     last_seen = datetime.utcnow()
     next_run = last_seen + timedelta(minutes=next_in)
     try:
       if upsert==True:
-        #self.log.debug("upsERT")
         self.db.upsert(ash, path, has_sub, last_seen, next_in, next_run)
       else:
         self.db.insert_or_update(ash, path, has_sub, last_seen, next_in, next_run)
@@ -161,6 +165,9 @@ class Periscoped(object):
     except Exception, e:
       self.log.error("Path '%s' threw an exception : %s"%(path, e))
 
+  def get_hash(self, path):
+    basepath = self.get_short_filename(path)
+    return str(md5.new(basepath).hexdigest())
   def import_lib(self, lib_folder):
     self.log.info("Importing '%s'"%(lib_folder))
     force = self.options.force is not None and self.options.force
@@ -208,8 +215,23 @@ class Periscoped(object):
 
       self.log.info("Waiting for next iteration (%s)"%(self.run_each))
       time.sleep(self.run_each*60)
+
   def purge(self):
-    pass
+    """
+    Remove deleted files from library from database.
+    """
+    self.log.info("Cleaning database...")
+    rows = [row for row in self.db.conn.execute('''select hash, path from files''')]
+    dropped=0
+    print len(rows)
+    for row in rows:
+      ash = row[0]
+      path=row[1]
+      if not os.path.exists(path):
+        self.log.debug("Removing '%s' from local database"%(path))
+        self.db.delete(ash)
+        dropped+=1
+    self.log.info("Purged %s files from locale database"%(dropped))
 
   def main(self):
     self.log.info("Hello Periscoped")
@@ -232,7 +254,7 @@ def main():
   parser.add_option("--db", action="append", dest="db_name", help="database name")
 
   parser.add_option("--import", action="append", dest="import_lib", help="import video library")
-  parser.add_option("--purge", action="append", dest="purge", help="delete non existing files from database")
+  parser.add_option("--purge", action="store_true", dest="purge", help="delete non existing files from database")
 
   parser.add_option("--run", action="store_true", dest="run", help="run the subtitle downloader")
   parser.add_option("--force", action="store_true", dest="force", help="force the operation")
