@@ -14,6 +14,38 @@ import periscope
 
 import ConfigParser
 
+import pyinotify
+
+class EventHandler(pyinotify.ProcessEvent):
+  def __init__(self, log, periscoped):
+    self.log = log
+    self.p = periscoped
+  
+  def process_IN_CREATE(self, event):
+    self.log.debug("IN_CREATE")
+    self.new_file(event.pathname, 2)
+  
+  def process_IN_MOVED_TO(self, event):
+    self.log.debug("IN_MOVED_TO")
+    self.new_file(event.pathname, 0)
+  
+  def process_IN_ClOSE_WRITE(self, event):
+    self.log.debug("IN_CLOSE_WRITE")
+    self.new_file(event.pathname, 0)
+
+  def process_IN_DELETE(self, event):
+    path = event.pathname
+    if self.p.is_sub(path):
+      self.log.info("Sub removed : %s"%(path))
+  def new_file(self, path, next_in):
+    if self.p.is_sub(path):
+      self.log.info("New sub arrived : %s"%(path))
+    elif self.p.is_supported(path):
+      self.log.info("New file arrived : %s"%(path))
+      self.p.insert_file(path, next_in)
+
+
+
 class PeriscopedDb(object):
   def __init__(self, full_dbname, log=logging.getLogger(__name__)):
     self.log = log
@@ -133,14 +165,18 @@ class Periscoped(object):
         self.recursive_import(os.path.join(path, e), force)
     elif os.path.isfile(path):
       # Add mkv mimetype to the list
-      self.insert_file(path, force)
+      self.insert_file(path, 0, force)
   
-  def insert_file(self, path, force=False):
+  def is_supported(self, path):
     mimetypes.add_type("video/x-matroska", ".mkv")
     mimetype = mimetypes.guess_type(path)[0]
-    if mimetype in self.supported_formats:
-      self.log.debug("Importing '%s'"%(path))
-      self.save_file(path, 0, not force)
+    return mimetype in self.supported_formats
+
+  def insert_file(self, path, next_in=0, force=False):
+    self.log.debug("Importing '%s'"%(path))
+    if self.is_supported(path):
+      self.save_file(path, next_in, not force)
+      
 
   def get_short_filename(self, path):
       return os.path.splitext(path)[0]
@@ -148,6 +184,8 @@ class Periscoped(object):
   def has_sub(self, path):
       basepath = self.get_short_filename(path)
       return (os.path.exists(basepath+'.srt') or os.path.exists(basepath + '.sub')) 
+  def is_sub(self, path):
+      return path.endswith('.srt') or path.endswith('.sub')
 
   def save_file(self, path, next_in, upsert=True):
     basepath = self.get_short_filename(path)
@@ -192,20 +230,21 @@ class Periscoped(object):
       self.log.info("Running subtitles search for %s items"%(len(rows)))
       subs = []
       for row in rows:
-        sub=p.downloadSubtitle(row[0], p.preferedLanguages)
-        next_in=int(row[1])
-        # Sub found
-        if sub is not None:
-          subs.append(sub)
-          next_in=None
-        else:
-          # sub not found increasing the time before retrying it.
-          if next_in == 0:
-            next_in=1
-          next_in=self.retry_factor*next_in
-          self.log.info("Could not find a subtitle. Retrying in %s min."%(self.run_each+next_in))
-   
-        self.save_file(row[0], next_in, False)
+        path = row[0]
+        next_in=0
+        if not self.has_sub(path):
+          sub=p.downloadSubtitle(row[0], p.preferedLanguages)
+          next_in=int(row[1])
+          # Sub found
+          if sub is not None:
+            subs.append(sub)
+          else:
+            # sub not found increasing the time before retrying it.
+            if next_in == 0:
+              next_in=1
+            next_in=self.retry_factor*next_in
+            self.log.info("Could not find a subtitle. Retrying in %s min."%(self.run_each+next_in)) 
+        self.save_file(path, next_in, False)
        
       self.log.info("*"*50)
       self.log.info("Periscoped %s subtitles" %len(subs))
@@ -233,12 +272,23 @@ class Periscoped(object):
         dropped+=1
     self.log.info("Purged %s files from locale database"%(dropped))
 
+  def watch(self, watched):
+    self.log.info("watching %s"%watched)
+    wm = pyinotify.WatchManager()
+    mask = pyinotify.IN_DELETE | pyinotify.IN_CREATE | pyinotify.IN_MOVED_TO | pyinotify.IN_CLOSE_WRITE # watched events
+    handler = EventHandler(self.log, self)
+    notifier = pyinotify.Notifier(wm, handler)
+    wdd = wm.add_watch(watched, mask, rec=True)
+    notifier.loop()
+
   def main(self):
     self.log.info("Hello Periscoped")
     if self.options.import_lib:
       self.import_lib(self.options.import_lib[0])
     if self.options.purge:
       self.purge()
+    if self.options.watch:
+      self.watch(self.options.watch[0])
     if self.options.run:
       self.run()
 
@@ -257,6 +307,7 @@ def main():
   parser.add_option("--purge", action="store_true", dest="purge", help="delete non existing files from database")
 
   parser.add_option("--run", action="store_true", dest="run", help="run the subtitle downloader")
+  parser.add_option("--watch", action="append", dest="watch", help="run the subtitle downloader")
   parser.add_option("--force", action="store_true", dest="force", help="force the operation")
 
 
