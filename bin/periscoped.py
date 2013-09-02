@@ -288,7 +288,7 @@ class Periscoped(object):
       self.log.info("Looking around...")
       subs = []
       for row in rows:
-        path = row[0]
+        path = row[0].encode("utf-8")
         next_in=0
         if not self.has_sub(path):
           omanager.turn_off_stds()
@@ -324,7 +324,7 @@ class Periscoped(object):
     dropped=0
     self.log.info("%s files in the database."%(len(rows)))
     for row in rows:
-      ash = row[0]
+      ash = row[0].encode("utf-8")
       path=row[1]
       if not os.path.exists(path):
         self.delete_file(path, ash)
