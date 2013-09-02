@@ -1,0 +1,59 @@
+#This file should be placed in ~/.config/periscope
+
+[Periscoped]
+#run each minutes
+run_each = 1
+# retry factor.
+retry_factor = 3
+
+
+#Logging
+[loggers]
+keys=root, PeriscopedDb, Periscoped, periscope
+
+[logger_root]
+level=CRITICAL
+handlers=
+
+
+[logger_Periscoped]
+qualname=Periscoped
+level=INFO
+handlers=Periscoped
+
+[logger_PeriscopedDb]
+qualname=PeriscopedDb
+level=INFO
+handlers=PeriscopedDb
+
+[logger_periscope]
+qualname=periscope
+level=CRITICAL
+handlers=periscope
+
+[handlers]
+keys=PeriscopedDb, Periscoped, periscope
+
+[formatters]
+keys = simple
+
+[formatter_simple]
+format=%(asctime)s - %(name)s - %(levelname)s - %(message)s
+datefmt=
+
+
+[handler_Periscoped]
+class=StreamHandler
+args = (sys.stdout,)
+formatter=simple
+
+
+[handler_PeriscopedDb]
+class=StreamHandler
+args = (sys.stdout,)
+formatter=simple
+
+[handler_periscope]
+class=StreamHandler
+args = (sys.stdout,)
+formatter=simple
