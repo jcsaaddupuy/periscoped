@@ -341,7 +341,7 @@ class Periscoped(object):
     notifier.loop()
 
   def main(self):
-    self.log.info("Hello Periscoped")
+    self.log.info("Ready to sail the sea!")
     if self.options.import_lib:
       self.import_lib(self.options.import_lib[0])
     if self.options.purge:
