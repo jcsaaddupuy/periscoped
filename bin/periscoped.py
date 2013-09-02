@@ -2,32 +2,56 @@
 #!/usr/bin/python2.7
 
 import logging
+import logging.config
 import mimetypes
 import os
 import sqlite3
 from datetime import datetime, timedelta
 import md5
 import time
-
 from optparse import OptionParser
 import periscope
-
 import ConfigParser
-
 import pyinotify
+import sys
+
+
+
+class StdOutputsManager(object):
+  """
+  A class to turn off stderr and stdout.
+  Mainly to get rid of unhandled periscope eception which make garbage in the logs.
+  """
+  class writer(object):
+    """
+    A dummy writer that just do nothing.
+    """
+    def write(self, data):
+      pass
+  def __init__(self):
+    self.stderr = sys.stderr
+    self.stdout = sys.stdout
+    self.dummy_stdout = self.writer()
+    self.dummy_stderr = self.writer()
+  def turn_off_stds(self):
+    sys.stdout = self.dummy_stdout
+    sys.stderr = self.dummy_stderr
+  def turn_on_stds(self):
+    sys.stdout = self.stdout
+    sys.stderr = self.stderr
+
+
 
 class EventHandler(pyinotify.ProcessEvent):
-  def __init__(self, log, periscoped):
+  def __init__(self, periscoped, log=None):
     self.log = log
+    if self.log is None:
+      self.log = logging.getLogger('EventHandler')
     self.p = periscoped
   
   def process_IN_CREATE(self, event):
     self.log.debug("IN_CREATE")
     self.new_file(event.pathname, 2)
-  
-  def process_IN_MOVED_TO(self, event):
-    self.log.debug("IN_MOVED_TO")
-    self.new_file(event.pathname, 0)
   
   def process_IN_ClOSE_WRITE(self, event):
     self.log.debug("IN_CLOSE_WRITE")
@@ -35,20 +59,27 @@ class EventHandler(pyinotify.ProcessEvent):
 
   def process_IN_DELETE(self, event):
     path = event.pathname
-    if self.p.is_sub(path):
+    if self.p.is_supported(path):
+      self.p.delete_file(path)
+    elif self.p.is_sub(path):
       self.log.info("Sub removed : %s"%(path))
+      #TODO: update corresponding entry with has_sub = 0 if no sub availables
+
   def new_file(self, path, next_in):
     if self.p.is_sub(path):
       self.log.info("New sub arrived : %s"%(path))
     elif self.p.is_supported(path):
       self.log.info("New file arrived : %s"%(path))
-      self.p.insert_file(path, next_in)
+      self.p.import_file(path, next_in)
 
 
 
 class PeriscopedDb(object):
-  def __init__(self, full_dbname, log=logging.getLogger(__name__)):
+  def __init__(self, full_dbname, log=None):
     self.log = log
+    if self.log is None:
+      self.log = logging.getLogger('PeriscopedDb')
+
     self.log.info("Using database '%s'"%(full_dbname))
     self.conn = sqlite3.connect(full_dbname)
     self.create_db()
@@ -97,25 +128,32 @@ class PeriscopedDb(object):
 
 class Periscoped(object):
 
-  def __init__(self, options):
+  def __init__(self, options, log=None):
+    self.config = ConfigParser.SafeConfigParser()
     self.supported_formats = 'video/x-msvideo', 'video/quicktime', 'video/x-matroska', 'video/mp4'
     self.options=options
-    self.log = logging.getLogger(__name__)
     self.init_logger()
+    self.log = log
+    if self.log is None:
+      self.log = logging.getLogger('Periscoped')
+    self.check_config()
     
-    self.cache_folder = self.get_cache_folder()
-    self.log.debug("Cache folder : '%s'"%(self.cache_folder))
-    self.config = ConfigParser.SafeConfigParser()
+    self.log.debug("Cache folder : '%s'"%(self.get_cache_folder()))
 
     self.read_config()
     self.db=self.init_db()
 
-  def read_config(self):
-    self.config_file = os.path.join(self.cache_folder, "config")
-    if os.path.exists(self.config_file):
-      self.config.read(self.config_file)
+  def config_file(self):
+    return os.path.join(self.get_cache_folder(), "periscoped")
+
+  def check_config(self):
+    print self.config_file()
+    if os.path.exists(self.config_file()):
+      self.config.read(self.config_file())
     else:
-      raise Exception("config file %s does not exists"%(self.config_file))
+      raise Exception("config file %s does not exists"%(self.config_file()))
+
+  def read_config(self):
     self.log.debug("Read configuration")
 
     self.log.debug("Trying to read key run_each")
@@ -140,17 +178,20 @@ class Periscoped(object):
     db_name="periscoped"
     if self.options.db_name is not None:
       db_name = self.options.db_name[0]
-    full_dbname = "%s.%s"%(os.path.join(self.cache_folder, db_name),'sqlite')
+    full_dbname = "%s.%s"%(os.path.join(self.get_cache_folder(), db_name),'sqlite')
     db = PeriscopedDb(full_dbname)
     return db
 
   def init_logger(self):
+    """
     if self.options.debug :
       logging.basicConfig(level=logging.DEBUG)
     elif self.options.quiet :
       logging.basicConfig(level=logging.WARN)
     else :
       logging.basicConfig(level=logging.INFO)
+    """
+    logging.config.fileConfig(os.path.join(self.config_file()))
 
   def get_cache_folder(self):
     if not self.options.cache_folder:
@@ -173,14 +214,14 @@ class Periscoped(object):
         self.recursive_import(os.path.join(path, e), force)
     elif os.path.isfile(path):
       # Add mkv mimetype to the list
-      self.insert_file(path, 0, force)
+      self.import_file(path, 0, force)
 
   def is_supported(self, path):
     mimetypes.add_type("video/x-matroska", ".mkv")
     mimetype = mimetypes.guess_type(path)[0]
     return mimetype in self.supported_formats
 
-  def insert_file(self, path, next_in=0, force=False):
+  def import_file(self, path, next_in=0, force=False):
     self.log.debug("Importing '%s'"%(path))
     if self.is_supported(path):
       self.save_file(path, next_in, not force)
@@ -221,9 +262,17 @@ class Periscoped(object):
     self.log.debug("Force : %s"%(force))
     self.recursive_import(lib_folder, force)
 
+  def delete_file(self, path, ash=None):
+    self.log.info("Removing '%s' from local database"%(path))
+    h=ash
+    if h is None:
+      h = self.get_hash(path)
+    self.db.delete(h)
+
   def run(self):
-    self.log.info("Running subtitle downloader")
-    p = periscope.Periscope(self.cache_folder)
+    self.log.info("Emerging from the deep")
+    omanager = StdOutputsManager()
+    p = periscope.Periscope(self.get_cache_folder())
     while True:
       #fetch files without subtitles
       rows = [row for row in self.db.conn.execute('''
@@ -236,12 +285,15 @@ class Periscoped(object):
         )
       ''')]
       self.log.info("Running subtitles search for %s items"%(len(rows)))
+      self.log.info("Looking around...")
       subs = []
       for row in rows:
         path = row[0]
         next_in=0
         if not self.has_sub(path):
+          omanager.turn_off_stds()
           sub=p.downloadSubtitle(row[0], p.preferedLanguages)
+          omanager.turn_on_stds()
           next_in=int(row[1])
           # Sub found
           if sub is not None:
@@ -251,7 +303,7 @@ class Periscoped(object):
             if next_in == 0:
               next_in=1
             next_in=self.retry_factor*next_in
-            self.log.info("Could not find a subtitle. Retrying in %s min."%(self.run_each+next_in)) 
+            self.log.debug("'%s' : Could not find a subtitle. Retrying in %s min."%(path, self.run_each+next_in)) 
         self.save_file(path, next_in, False)
 
       self.log.info("*"*50)
@@ -260,7 +312,7 @@ class Periscoped(object):
         self.log.info(s['lang'] + " - " + s['subtitlepath'])
       self.log.info("*"*50)
 
-      self.log.info("Waiting for next iteration (%s)"%(self.run_each))
+      self.log.info("Going in immersion for %s minute(s)."%(self.run_each))
       time.sleep(self.run_each*60)
 
   def purge(self):
@@ -275,16 +327,15 @@ class Periscoped(object):
       ash = row[0]
       path=row[1]
       if not os.path.exists(path):
-        self.log.debug("Removing '%s' from local database"%(path))
-        self.db.delete(ash)
+        self.delete_file(path, ash)
         dropped+=1
     self.log.info("Purged %s files from locale database"%(dropped))
 
   def watch(self, watched):
     self.log.info("watching %s"%watched)
     wm = pyinotify.WatchManager()
-    mask = pyinotify.IN_DELETE | pyinotify.IN_CREATE | pyinotify.IN_MOVED_TO | pyinotify.IN_CLOSE_WRITE # watched events
-    handler = EventHandler(self.log, self)
+    mask = pyinotify.IN_DELETE | pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE # watched events
+    handler = EventHandler(self)
     notifier = pyinotify.Notifier(wm, handler)
     wdd = wm.add_watch(watched, mask, rec=True)
     notifier.loop()
