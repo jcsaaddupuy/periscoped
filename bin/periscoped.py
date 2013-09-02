@@ -83,6 +83,7 @@ class PeriscopedDb(object):
     self.log.info("Using database '%s'"%(full_dbname))
     self.conn = sqlite3.connect(full_dbname)
     self.create_db()
+    self.conn.text_factory = str
 
   def create_db(self):
     with self.conn as con: 
@@ -119,7 +120,7 @@ class PeriscopedDb(object):
         coalesce( ( select next_run from files where hash = ?), ?)
       )
       ''', 
-      [ash, path.decode("utf-8"), has_sub, last_seen, ash, next_in, ash, next_run]
+      [ash, path, has_sub, last_seen, ash, next_in, ash, next_run]
       )
 
   def delete(self, ash):
@@ -288,7 +289,7 @@ class Periscoped(object):
       self.log.info("Looking around...")
       subs = []
       for row in rows:
-        path = row[0].encode("utf-8")
+        path = row[0]
         next_in=0
         if not self.has_sub(path):
           omanager.turn_off_stds()
@@ -324,7 +325,7 @@ class Periscoped(object):
     dropped=0
     self.log.info("%s files in the database."%(len(rows)))
     for row in rows:
-      ash = row[0].encode("utf-8")
+      ash = row[0]
       path=row[1]
       if not os.path.exists(path):
         self.delete_file(path, ash)
