@@ -119,7 +119,7 @@ class PeriscopedDb(object):
         coalesce( ( select next_run from files where hash = ?), ?)
       )
       ''', 
-      [ash, path, has_sub, last_seen, ash, next_in, ash, next_run]
+      [ash, path.decode("utf-8"), has_sub, last_seen, ash, next_in, ash, next_run]
       )
 
   def delete(self, ash):
