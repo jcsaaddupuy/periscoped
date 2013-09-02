@@ -10,5 +10,5 @@ setup(name = PACKAGE, version = version.VERSION,
     author_email = "saad.dupuy@gmail.com",
     url = "https://github.com/jcsaaddupuy/periscoped",
     scripts = [ "bin/periscoped.py" ],
-    install_requires = ["periscope >= dev"]
+    install_requires = ["periscope >= dev", "pyinotify >= 0.9.4" ]
     )
