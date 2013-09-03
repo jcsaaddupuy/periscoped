@@ -43,6 +43,10 @@ class StdOutputsManager(object):
 
 
 class EventHandler(pyinotify.ProcessEvent):
+  """
+  Pyinotify events handler
+  """
+
   def __init__(self, periscoped, log=None):
     self.log = log
     if self.log is None:
@@ -55,6 +59,10 @@ class EventHandler(pyinotify.ProcessEvent):
   
   def process_IN_ClOSE_WRITE(self, event):
     self.log.debug("IN_CLOSE_WRITE")
+    self.new_file(event.pathname, 0)
+
+  def process_IN_MOVED_TO(self, event):
+    self.log.debug("IN_MOVED_TO")
     self.new_file(event.pathname, 0)
 
   def process_IN_DELETE(self, event):
@@ -80,7 +88,7 @@ class PeriscopedDb(object):
     if self.log is None:
       self.log = logging.getLogger('PeriscopedDb')
 
-    self.log.info("Using database '%s'"%(full_dbname))
+    self.log.debug("Using database '%s'"%(full_dbname))
     self.conn = sqlite3.connect(full_dbname)
     self.create_db()
     self.conn.text_factory = str
@@ -122,6 +130,12 @@ class PeriscopedDb(object):
       ''', 
       [ash, path, has_sub, last_seen, ash, next_in, ash, next_run]
       )
+
+  def exists(self, ash):
+    with self.conn as con: 
+      rows = [row for row in con.execute('''select 1 from files where hash=?''', [ash]) ]
+      return len(rows)>0
+
 
   def delete(self, ash):
     with(self.conn) as conn:
@@ -184,14 +198,6 @@ class Periscoped(object):
     return db
 
   def init_logger(self):
-    """
-    if self.options.debug :
-      logging.basicConfig(level=logging.DEBUG)
-    elif self.options.quiet :
-      logging.basicConfig(level=logging.WARN)
-    else :
-      logging.basicConfig(level=logging.INFO)
-    """
     logging.config.fileConfig(os.path.join(self.config_file()))
 
   def get_cache_folder(self):
@@ -223,8 +229,8 @@ class Periscoped(object):
     return mimetype in self.supported_formats
 
   def import_file(self, path, next_in=0, force=False):
-    self.log.debug("Importing '%s'"%(path))
     if self.is_supported(path):
+      self.log.debug("Importing '%s'"%(path))
       self.save_file(path, next_in, not force)
 
 
@@ -245,6 +251,11 @@ class Periscoped(object):
     last_seen = datetime.utcnow()
     next_run = last_seen + timedelta(minutes=next_in)
     try:
+      if self.db.exists(ash):
+        self.log.debug("Updating '%s' (subtitle : %s)"%(path, has_sub))
+      else:
+        self.log.info("Adding new file '%s'"%(path))
+
       if upsert==True:
         self.db.upsert(ash, path, has_sub, last_seen, next_in, next_run)
       else:
@@ -285,11 +296,15 @@ class Periscoped(object):
          or next_run is null
         )
       ''')]
-      self.log.info("Running subtitles search for %s items"%(len(rows)))
-      self.log.info("Looking around...")
+
+      if len(rows)>0:
+        self.log.info("Running subtitles search for %s items"%(len(rows)))
+        self.log.info("Looking around...")
+
       subs = []
       for row in rows:
         path = row[0]
+        self.log.debug("Searching '%s'"%(path))
         next_in=0
         if not self.has_sub(path):
           omanager.turn_off_stds()
@@ -307,11 +322,12 @@ class Periscoped(object):
             self.log.debug("'%s' : Could not find a subtitle. Retrying in %s min."%(path, self.run_each+next_in)) 
         self.save_file(path, next_in, False)
 
-      self.log.info("*"*50)
-      self.log.info("Periscoped %s subtitles" %len(subs))
-      for s in subs:
-        self.log.info(s['lang'] + " - " + s['subtitlepath'])
-      self.log.info("*"*50)
+      if len(subs)>0:
+        self.log.info("*"*50)
+        self.log.info("Periscoped %s subtitles" %len(subs))
+        for s in subs:
+          self.log.info(s['lang'] + " - " + s['subtitlepath'])
+        self.log.info("*"*50)
 
       self.log.info("Going in immersion for %s minute(s)."%(self.run_each))
       time.sleep(self.run_each*60)
@@ -335,7 +351,7 @@ class Periscoped(object):
   def watch(self, watched):
     self.log.info("watching %s"%watched)
     wm = pyinotify.WatchManager()
-    mask = pyinotify.IN_DELETE | pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE # watched events
+    mask = pyinotify.IN_DELETE | pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO # watched events
     handler = EventHandler(self)
     notifier = pyinotify.Notifier(wm, handler)
     wdd = wm.add_watch(watched, mask, rec=True)
