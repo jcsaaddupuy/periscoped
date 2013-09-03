@@ -352,7 +352,7 @@ class Periscoped(object):
     self.log.info("watching %s"%watched)
     wm = pyinotify.WatchManager()
     mask = pyinotify.IN_DELETE | pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO # watched events
-    handler = EventHandler(self)
+    handler = EventHandler(self, self.log)
     notifier = pyinotify.Notifier(wm, handler)
     wdd = wm.add_watch(watched, mask, rec=True)
     notifier.loop()
