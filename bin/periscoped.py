@@ -282,7 +282,6 @@ class Periscoped(object):
     self.db.delete(h)
 
   def run(self):
-    self.log.info("Emerging from the deep")
     omanager = StdOutputsManager()
     p = periscope.Periscope(self.get_cache_folder())
     while True:
@@ -298,6 +297,7 @@ class Periscoped(object):
       ''')]
 
       if len(rows)>0:
+        self.log.info("Emerging from the deep")
         self.log.info("Running subtitles search for %s items"%(len(rows)))
         self.log.info("Looking around...")
 
