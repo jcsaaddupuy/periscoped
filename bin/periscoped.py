@@ -328,8 +328,8 @@ class Periscoped(object):
         for s in subs:
           self.log.info(s['lang'] + " - " + s['subtitlepath'])
         self.log.info("*"*50)
-
-      self.log.info("Going in immersion for %s minute(s)."%(self.run_each))
+      if len(rows)>0:
+        self.log.info("Going in immersion for %s minute(s)."%(self.run_each))
       time.sleep(self.run_each*60)
 
   def purge(self):
