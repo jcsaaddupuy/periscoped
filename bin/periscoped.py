@@ -79,7 +79,7 @@ class EventHandler(pyinotify.ProcessEvent):
     elif self.p.is_format_supported(path):
       self.log.info("New file arrived : %s"%(path))
       self.p.import_file(path, next_in)
-    elif os.path.is_dir(path):
+    elif os.path.isdir(path):
       self.p.recursive_import(path)
 
 
