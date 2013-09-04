@@ -50,7 +50,7 @@ class EventHandler(pyinotify.ProcessEvent):
   def __init__(self, periscoped, log=None):
     self.log = log
     if self.log is None:
-      self.log = logging.getLogger('EventHandler')
+      self.log = logging.getLogger('eventhandler')
     self.p = periscoped
   
   def process_IN_CREATE(self, event):
@@ -88,7 +88,7 @@ class PeriscopedDb(object):
   def __init__(self, full_dbname, log=None):
     self.log = log
     if self.log is None:
-      self.log = logging.getLogger('PeriscopedDb')
+      self.log = logging.getLogger('periscopeddb')
 
     self.log.debug("Using database '%s'"%(full_dbname))
     self.conn = sqlite3.connect(full_dbname)
@@ -152,14 +152,16 @@ class Periscoped(object):
     self.init_logger()
     self.log = log
     if self.log is None:
-      self.log = logging.getLogger('Periscoped')
+      self.log = logging.getLogger('periscoped')
     self.check_config()
     
     self.log.debug("Cache folder : '%s'"%(self.get_cache_folder()))
 
+    self.p = periscope.Periscope(self.get_cache_folder())
     self.read_config()
     self.db=self.init_db()
     mimetypes.add_type("video/x-matroska", ".mkv")
+
 
   def config_file(self):
     return os.path.join(self.get_cache_folder(), "periscoped")
@@ -175,7 +177,7 @@ class Periscoped(object):
     self.log.debug("Read configuration")
 
     self.log.debug("Trying to read key run_each")
-    self.run_each=self.config.get("Periscoped","run_each")
+    self.run_each=self.config.get("DEFAULT","run_each")
     if self.run_each == "":
       self.run_each=10
       self.log.debug("Could not read key run_each. Using default value '%s'"%(self.run_each))
@@ -183,13 +185,25 @@ class Periscoped(object):
       self.log.debug("Read key run_each. Using value '%s'"%(self.run_each))
     self.run_each=int(self.run_each)
 
-    self.retry_factor=self.config.get("Periscoped","retry_factor")
+    self.retry_factor=self.config.get("DEFAULT","retry_factor")
     if self.retry_factor == "":
       self.retry_factor=1.5
       self.log.debug("Could not read key retry_factor. Using default value '%s'"%(self.retry_factor))
     else:
       self.log.debug("Read key retry_factor. Using value '%s'"%(self.retry_factor))
     self.retry_factor=float(self.retry_factor)
+
+    self.langs=""
+    try:
+      self.langs=self.config.get("DEFAULT","lang")
+      if self.langs == "":
+        self.langs=self.p.preferedLanguages
+        self.log.debug("Could not read key lang. Using default value '%s'"%(self.langs))
+      else:
+        self.langs=self.langs.split(',')
+        self.log.debug("Read key lang. Using value '%s'"%(self.langs))
+    except:
+      self.langs=self.p.preferedLanguages
 
 
   def init_db(self):
@@ -241,7 +255,15 @@ class Periscoped(object):
 
   def has_sub(self, path):
     basepath = self.get_short_filename(path)
-    return (os.path.exists(basepath+'.srt') or os.path.exists(basepath + '.sub')) 
+    found=False
+    langs=['',]+[''+l for l in self.langs]
+    exts=['srt','sub']
+    found = False
+    for lang in langs:
+      for ext in exts:
+        found=found or os.path.exists(basepath+lang+'.'+ext)
+    return found
+        
   def is_sub(self, path):
     return path.endswith('.srt') or path.endswith('.sub')
 
@@ -256,8 +278,7 @@ class Periscoped(object):
       if self.db.exists(ash):
         self.log.debug("Updating '%s' (subtitle : %s)"%(path, has_sub))
       else:
-        self.log.info("Adding new file '%s'"%(path))
-
+        self.log.info("Adding new file '%s' (subtitle : %s)"%(path, has_sub))
       if upsert==True:
         self.db.upsert(ash, path, has_sub, last_seen, next_in, next_run)
       else:
@@ -285,7 +306,6 @@ class Periscoped(object):
 
   def run(self):
     omanager = StdOutputsManager()
-    p = periscope.Periscope(self.get_cache_folder())
     while True:
       #fetch files without subtitles
       rows = [row for row in self.db.conn.execute('''
@@ -310,7 +330,7 @@ class Periscoped(object):
         next_in=0
         if not self.has_sub(path):
           omanager.turn_off_stds()
-          sub=p.downloadSubtitle(row[0], p.preferedLanguages)
+          sub=self.p.downloadSubtitle(row[0], self.langs)
           omanager.turn_on_stds()
           next_in=int(row[1])
           # Sub found
