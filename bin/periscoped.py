@@ -67,7 +67,7 @@ class EventHandler(pyinotify.ProcessEvent):
 
   def process_IN_DELETE(self, event):
     path = event.pathname
-    if self.p.is_supported(path):
+    if self.p.is_format_supported(path):
       self.p.delete_file(path)
     elif self.p.is_sub(path):
       self.log.info("Sub removed : %s"%(path))
@@ -76,9 +76,11 @@ class EventHandler(pyinotify.ProcessEvent):
   def new_file(self, path, next_in):
     if self.p.is_sub(path):
       self.log.info("New sub arrived : %s"%(path))
-    elif self.p.is_supported(path):
+    elif self.p.is_format_supported(path):
       self.log.info("New file arrived : %s"%(path))
       self.p.import_file(path, next_in)
+    elif os.path.is_dir(path):
+      self.p.recursive_import(path)
 
 
 
@@ -157,6 +159,7 @@ class Periscoped(object):
 
     self.read_config()
     self.db=self.init_db()
+    mimetypes.add_type("video/x-matroska", ".mkv")
 
   def config_file(self):
     return os.path.join(self.get_cache_folder(), "periscoped")
@@ -223,13 +226,12 @@ class Periscoped(object):
       # Add mkv mimetype to the list
       self.import_file(path, 0, force)
 
-  def is_supported(self, path):
-    mimetypes.add_type("video/x-matroska", ".mkv")
+  def is_format_supported(self, path):
     mimetype = mimetypes.guess_type(path)[0]
     return mimetype in self.supported_formats
 
   def import_file(self, path, next_in=0, force=False):
-    if self.is_supported(path):
+    if self.is_format_supported(path):
       self.log.debug("Importing '%s'"%(path))
       self.save_file(path, next_in, not force)
 
