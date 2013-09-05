@@ -1,19 +1,17 @@
 # -*- coding: utf-8 -*-
 #!/usr/bin/python2.7
 
-import logging
-import logging.config
-import mimetypes
-import os
-import sqlite3
-from datetime import datetime, timedelta
-import md5
+import os, sys
+import logging, logging.config
 import time
+from datetime import datetime, timedelta
+import mimetypes
+import sqlite3
+import md5
 from optparse import OptionParser
-import periscope
 import ConfigParser
+import periscope
 import pyinotify
-import sys
 
 
 
