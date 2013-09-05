@@ -72,15 +72,18 @@ class EventHandler(pyinotify.ProcessEvent):
     elif self.p.is_sub(path):
       self.log.info("Sub removed : %s"%(path))
       #TODO: update corresponding entry with has_sub = 0 if no sub availables
+    elif os.path.isdir(path):
+      self.log.info("Folder removed : %s"%(path))
+      self.p.delete_folder(path)
 
   def new_file(self, path, next_in):
     if self.p.is_sub(path):
-      self.log.info("New sub arrived : %s"%(path))
+      self.log.info("New sub arrived ! : %s"%(path))
     elif self.p.is_format_supported(path):
-      self.log.info("New file arrived : %s"%(path))
+      self.log.info("New file arrived ! : %s"%(path))
       self.p.import_file(path, next_in)
     elif os.path.isdir(path):
-      self.log.info("New folder created : %s"%(path))
+      self.log.info("New folder created ! : %s"%(path))
       self.p.recursive_import(path)
 
 
@@ -140,9 +143,14 @@ class PeriscopedDb(object):
       return len(rows)>0
 
 
-  def delete(self, ash):
+  def delete_file(self, ash):
     with(self.conn) as conn:
       conn.execute(''' delete from files where hash = ? ''', [ash,])
+  
+  def delete_folder(self, folder):
+    with(self.conn) as conn:
+      conn.execute(''' delete from files where file like '?%' ''', [folder,])
+
 
 class Periscoped(object):
 
@@ -305,10 +313,9 @@ class Periscoped(object):
     h=ash
     if h is None:
       h = self.get_hash(path)
-    self.db.delete(h)
+    self.db.delete_file(h)
 
   def run(self):
-    print self.options.force
     omanager = StdOutputsManager()
     while True:
       #fetch files without subtitles
@@ -359,7 +366,7 @@ class Periscoped(object):
         self.log.info("Going in immersion for %s minute(s)."%(self.run_each))
       time.sleep(self.run_each*60)
 
-  def purge(self):
+  def purge(self,folder=None):
     """
     Remove deleted files from library from database.
     """
