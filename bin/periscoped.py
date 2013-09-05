@@ -55,7 +55,7 @@ class EventHandler(pyinotify.ProcessEvent):
     self.log.debug("IN_CREATE")
     self.new_file(event.pathname, 2)
   
-  def process_IN_ClOSE_WRITE(self, event):
+  def process_IN_CLOSE_WRITE(self, event):
     self.log.debug("IN_CLOSE_WRITE")
     self.new_file(event.pathname, 0)
 
@@ -385,9 +385,10 @@ class Periscoped(object):
     wm = pyinotify.WatchManager()
     mask = pyinotify.IN_DELETE | pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO # watched events
     handler = EventHandler(self, self.log)
-    notifier = pyinotify.Notifier(wm, handler)
+    notifier = pyinotify.AsyncNotifier(wm, handler)
     wdd = wm.add_watch(watched, mask, rec=True)
-    notifier.loop()
+    import asyncore
+    asyncore.loop()
 
   def main(self):
     self.log.info("Ready to sail the sea!")
