@@ -112,6 +112,9 @@ class PeriscopedDb(object):
       con.execute('''
       create index if not exists IX_file_path on Files(path)
           ''')
+      con.execute('''
+      create index if not exists IX_hash_path on Files(hash)
+          ''')
 
   def insert_or_update(self, ash, path, has_sub, last_seen, next_in, next_run):
     """
@@ -318,7 +321,7 @@ class Periscoped(object):
     while True:
       #fetch files without subtitles
       rows = [row for row in self.db.conn.execute('''
-        select path, next_in
+        select path, next_in, hash
         from files where has_sub=0 
         and 
         (
@@ -336,23 +339,27 @@ class Periscoped(object):
       subs = []
       for row in rows:
         path = row[0]
-        self.log.debug("Searching '%s'"%(path))
-        next_in=0
-        if not self.has_sub(path):
-          omanager.turn_off_stds()
-          sub=self.p.downloadSubtitle(row[0], self.langs)
-          omanager.turn_on_stds()
-          next_in=int(row[1])
-          # Sub found
-          if sub is not None:
-            subs.append(sub)
-          else:
-            # sub not found increasing the time before retrying it.
-            if next_in == 0:
-              next_in=1
-            next_in=self.retry_factor*next_in
-            self.log.debug("'%s' : Could not find a subtitle. Retrying in %s min."%(path, self.run_each+next_in)) 
-        self.save_file(path, next_in, False)
+        if os.path.exists(path):
+          self.log.debug("Searching '%s'"%(path))
+          next_in=0
+          if not self.has_sub(path):
+            omanager.turn_off_stds()
+            sub=self.p.downloadSubtitle(row[0], self.langs)
+            omanager.turn_on_stds()
+            next_in=int(row[1])
+            # Sub found
+            if sub is not None:
+              subs.append(sub)
+            else:
+              # sub not found increasing the time before retrying it.
+              if next_in == 0:
+                next_in=1
+              next_in=self.retry_factor*next_in
+              self.log.debug("'%s' : Could not find a subtitle. Retrying in %s min."%(path, self.run_each+next_in)) 
+          self.save_file(path, next_in, False)
+        else:
+          ash=row[2]
+          self.delete_file(path, ash)
 
       if len(subs)>0:
         self.log.info("*"*50)
