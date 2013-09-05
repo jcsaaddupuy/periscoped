@@ -17,12 +17,12 @@ handlers=
 
 [logger_periscoped]
 qualname=periscoped
-level=DEBUG
+level=INFO
 handlers=periscoped
 
 [logger_periscopedb]
 qualname=periscopedb
-level=DEBUG
+level=INFO
 handlers=periscoped
 
 [logger_periscope]
