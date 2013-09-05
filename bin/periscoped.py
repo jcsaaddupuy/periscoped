@@ -80,6 +80,7 @@ class EventHandler(pyinotify.ProcessEvent):
       self.log.info("New file arrived : %s"%(path))
       self.p.import_file(path, next_in)
     elif os.path.isdir(path):
+      self.log.info("New folder created : %s"%(path))
       self.p.recursive_import(path)
 
 
@@ -204,6 +205,8 @@ class Periscoped(object):
         self.log.debug("Read key lang. Using value '%s'"%(self.langs))
     except:
       self.langs=self.p.preferedLanguages
+    if self.options.force is None:
+      self.options.force=False
 
 
   def init_db(self):
@@ -305,6 +308,7 @@ class Periscoped(object):
     self.db.delete(h)
 
   def run(self):
+    print self.options.force
     omanager = StdOutputsManager()
     while True:
       #fetch files without subtitles
@@ -316,7 +320,8 @@ class Periscoped(object):
          datetime(next_run) <= datetime('now')
          or next_run is null
         )
-      ''')]
+        and ( (has_sub = 0 and ? = 0) or ?=1)
+      ''', [self.options.force, self.options.force])]
 
       if len(rows)>0:
         self.log.info("Emerging from the deep")
