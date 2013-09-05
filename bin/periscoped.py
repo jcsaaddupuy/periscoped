@@ -174,7 +174,6 @@ class Periscoped(object):
     return os.path.join(self.get_cache_folder(), "periscoped")
 
   def check_config(self):
-    print self.config_file()
     if os.path.exists(self.config_file()):
       self.config.read(self.config_file())
     else:
@@ -301,6 +300,7 @@ class Periscoped(object):
     return md5.new(basepath).hexdigest()
 
   def import_lib(self, lib_folder):
+    lib_folder=os.path.abspath(lib_folder)
     self.log.info("Importing '%s'"%(lib_folder))
     force = self.options.force is not None and self.options.force
     self.log.debug("Force : %s"%(force))
