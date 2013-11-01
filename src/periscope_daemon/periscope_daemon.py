@@ -178,10 +178,12 @@ class Periscoped(object):
   def config_file(self):
     """Returns the custom main config file in ~/.config/periscope-daemon or the default distributed one."""
     dist_config = os.path.join(os.path.dirname(__file__), 'config', 'daemon.conf')
-    custom_config = os.path.join(self.get_cache_folder(),  "daemon.config")
+    custom_config = os.path.join(self.get_cache_folder(),  "daemon.conf")
     if (os.path.exists(custom_config)):
+      print ("Using custom config file")
       return custom_config
     else:
+      print ("Using dist config fle")
       return dist_config
   
   def logging_config_file(self):
