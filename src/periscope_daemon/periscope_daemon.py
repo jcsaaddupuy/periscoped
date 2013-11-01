@@ -239,7 +239,6 @@ class Periscoped(object):
     return db
 
   def init_logger(self):
-    print self.logging_config_file()
     logging.config.fileConfig(self.logging_config_file())
 
   def get_cache_folder(self):
