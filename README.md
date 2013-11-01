@@ -50,6 +50,7 @@ Configuration
 -------------
 
 The main config file is located in ~/.config/periscope-daemon/daemon.conf
+This file will override the default distributed configuration.
 
 Availables configuration keys :
 ```
