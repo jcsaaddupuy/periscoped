@@ -431,7 +431,7 @@ class Periscoped(object):
 def main():
   '''Download subtitles'''
   # parse command line options
-  parser = OptionParser("usage: %prog [options] file1 file2", version = periscope.VERSION)
+  parser = OptionParser("usage: %prog [options] [folder]", version = periscope.VERSION)
 
   parser.add_option("--cache-folder", action="store", type="string", dest="cache_folder", help="location of the periscope cache/config folder (default is ~/.config/periscope)")
   parser.add_option("--quiet", action="store_true", dest="quiet", help="run in quiet mode (only show warn and error messages)")
