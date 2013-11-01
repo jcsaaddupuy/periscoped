@@ -32,7 +32,7 @@ Then, in a first console :
 
 Start watching a folder for new video files
 ```sh
-periscope-daemon --run
+periscope-daemon --watch ~/media/videos
 ```
 
 And in a second :
