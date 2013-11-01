@@ -239,7 +239,13 @@ class Periscoped(object):
     return db
 
   def init_logger(self):
-    logging.config.fileConfig(self.logging_config_file())
+    if (self.options.debug):
+      logging.basicConfig(level=logging.DEBUG)
+    elif (self.options.quiet):
+      logging.basicConfig(level=logging.CRITICAL)
+    else:
+      logging.config.fileConfig(self.logging_config_file())
+
 
   def get_cache_folder(self):
     if not self.options.cache_folder:
