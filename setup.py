@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 import version
 
-PACKAGE = 'periscope_daemon'
+PACKAGE = 'periscope-daemon'
 
 setup(name = PACKAGE, version = version.VERSION,
     license = "WTFPL",
