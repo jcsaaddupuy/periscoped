@@ -173,7 +173,21 @@ class Periscoped(object):
 
 
   def config_file(self):
-    return os.path.join(self.get_cache_folder(), "periscoped")
+    dist_config = os.path.join(os.path.dirname(__file__), 'config', 'daemon.conf')
+    custom_config = os.path.join(self.get_cache_folder(),  "daemon.config")
+    if (os.path.exists(custom_config)):
+      return custom_config
+    else:
+      return dist_config
+  
+  def logging_config_file(self):
+    dist_config = os.path.join(os.path.dirname(__file__), 'config', 'logging.conf')
+    custom_config = os.path.join(self.get_cache_folder() ,  "logging.conf")
+    if (os.path.exists(custom_config)):
+      return custom_config
+    else:
+      return dist_config
+
 
   def check_config(self):
     if os.path.exists(self.config_file()):
@@ -225,19 +239,20 @@ class Periscoped(object):
     return db
 
   def init_logger(self):
-    logging.config.fileConfig(os.path.join(self.config_file()))
+    print self.logging_config_file()
+    logging.config.fileConfig(self.logging_config_file())
 
   def get_cache_folder(self):
     if not self.options.cache_folder:
       try:
         import xdg.BaseDirectory as bd
-        self.options.cache_folder = os.path.join(bd.xdg_config_home, "periscope")
+        self.options.cache_folder = os.path.join(bd.xdg_config_home, "periscope-daemon")
       except:
         home = os.path.expanduser("~")
         if home == "~":
           log.error("Could not generate a cache folder at the home location using XDG (freedesktop). You must specify a --cache-config folder where the cache and config will be located (always use the same folder).")
           exit()
-        self.options.cache_folder = os.path.join(home, ".config", "periscope")
+        self.options.cache_folder = os.path.join(home, ".config", "periscope-daemon")
     return self.options.cache_folder
 
 
