@@ -321,7 +321,13 @@ class Periscoped(object):
     basepath = self.get_short_filename(path)
     return md5.new(basepath).hexdigest()
 
+  def import_libs(self, lib_folders):
+    """Import multiples path as a library folder"""
+    for path in lib_folders:
+      self.import_lib(path)
+
   def import_lib(self, lib_folder):
+    """Import the given path as a library folder"""
     lib_folder=os.path.abspath(lib_folder)
     self.log.info("Importing '%s'"%(lib_folder))
     force = self.options.force is not None and self.options.force
@@ -405,25 +411,33 @@ class Periscoped(object):
         self.delete_file(path, ash)
         dropped+=1
     self.log.info("Purged %s files from locale database"%(dropped))
-
+    
+    
   def watch(self, watched):
+    for path in watched:
+      self.add_watch(path)
+    import asyncore
+    asyncore.loop()
+
+  def add_watch(self, watched):
     self.log.info("watching %s"%watched)
     wm = pyinotify.WatchManager()
     mask = pyinotify.IN_DELETE | pyinotify.IN_CREATE | pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO # watched events
     handler = EventHandler(self, self.log)
     notifier = pyinotify.AsyncNotifier(wm, handler)
     wdd = wm.add_watch(watched, mask, rec=True)
-    import asyncore
-    asyncore.loop()
 
   def main(self):
     self.log.info("Ready to sail the sea!")
     if self.options.import_lib:
-      self.import_lib(self.options.import_lib[0])
+      self.log.info("Starting import")
+      self.import_libs(self.options.import_lib)
     if self.options.purge:
+      self.log.info("Starting purge")
       self.purge()
     if self.options.watch:
-      self.watch(self.options.watch[0])
+      self.log.info("Starting watch")
+      self.watch(self.options.watch)
     if self.options.run:
       self.run()
 
