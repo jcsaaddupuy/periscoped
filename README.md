@@ -12,42 +12,42 @@ You will need periscope,  pyinotify, sqlite.
 
 python setup.py build
 sudo python setup.py install
-cp config/periscoped ~/.config/periscope
 ```
 
 Availables commands
 -------------------
 First, you'll need to import your library
 ```sh
-periscoped.py --import ~/media/videos
+periscope-daemon --import ~/media/videos
 ```
 
 Then, in a first console :
 
 Start watching a folder for new video files
 ```sh
-periscoped.py --run
+periscope-daemon --run
 ```
 
 And in a second :
 Start downloading subtitles
 ```sh
-periscoped.py --run
+periscope-daemon --run
 ```
 
 Purge the library
 ```sh
-periscoped.py --purge
+periscope-daemon --purge
 ```
 
 Configuration
 -------------
 
-The main config file is located in ~/.config/periscope/periscoped.
+The main config file is located in ~/.config/periscope-daemon/daemon.conf
+
 Availables configuration keys :
 ```
 [DEFAULT]
-# Laguages. If not found, will fallback on periscope config.
+# Laguages.
 lang = fr,en
 # How often the daemon should run, in minutes
 run_each = 1
