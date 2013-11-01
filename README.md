@@ -8,6 +8,13 @@ Installation
 -------------
 You will need periscope,  pyinotify, sqlite.
 
+Installation via pip
+```sh
+pip  install periscope-daemon
+```
+
+
+Installation from the sources
 ```sh
 
 python setup.py build
