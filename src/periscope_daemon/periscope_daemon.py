@@ -153,8 +153,9 @@ class PeriscopedDb(object):
 
 
 class Periscoped(object):
-
+  """Main class for periscope-daemon"""
   def __init__(self, options, log=None):
+    """Constructor for Perisope daemon """
     self.config = ConfigParser.SafeConfigParser()
     self.supported_formats = 'video/x-msvideo', 'video/quicktime', 'video/x-matroska', 'video/mp4'
     self.options=options
@@ -162,7 +163,9 @@ class Periscoped(object):
     self.log = log
     if self.log is None:
       self.log = logging.getLogger('periscoped')
-    self.check_config()
+    
+    self.check_config() # Will raise an exception if cannot reach the configs file
+    self.config.read(self.config_file())
     
     self.log.debug("Cache folder : '%s'"%(self.get_cache_folder()))
 
@@ -173,6 +176,7 @@ class Periscoped(object):
 
 
   def config_file(self):
+    """Returns the custom main config file in ~/.config/periscope-daemon or the default distributed one."""
     dist_config = os.path.join(os.path.dirname(__file__), 'config', 'daemon.conf')
     custom_config = os.path.join(self.get_cache_folder(),  "daemon.config")
     if (os.path.exists(custom_config)):
@@ -181,6 +185,7 @@ class Periscoped(object):
       return dist_config
   
   def logging_config_file(self):
+    """Returns the custom logger config file in ~/.config/periscope-daemon or the default distributed one."""
     dist_config = os.path.join(os.path.dirname(__file__), 'config', 'logging.conf')
     custom_config = os.path.join(self.get_cache_folder() ,  "logging.conf")
     if (os.path.exists(custom_config)):
@@ -190,12 +195,14 @@ class Periscoped(object):
 
 
   def check_config(self):
-    if os.path.exists(self.config_file()):
-      self.config.read(self.config_file())
-    else:
+    """Check the presence for config files and raise an exception if one is missing """
+    if not os.path.exists(self.config_file()):
       raise Exception("config file %s does not exists"%(self.config_file()))
+    if not os.path.exists(self.logging_config_file()):
+      raise Exception("config file %s does not exists"%(self.logging_config_file()))
 
   def read_config(self):
+    """Read and load the main configuration file"""
     self.log.debug("Read configuration")
 
     self.log.debug("Trying to read key run_each")
@@ -231,6 +238,7 @@ class Periscoped(object):
 
 
   def init_db(self):
+    """initialize the database access object"""
     db_name="periscoped"
     if self.options.db_name is not None:
       db_name = self.options.db_name[0]
@@ -239,6 +247,7 @@ class Periscoped(object):
     return db
 
   def init_logger(self):
+    """Initialize the logger"""
     if (self.options.debug):
       logging.basicConfig(level=logging.DEBUG)
     elif (self.options.quiet):
@@ -262,6 +271,7 @@ class Periscoped(object):
 
 
   def recursive_import(self, path, force=False):
+    """Recursively import a folder and its subfolders"""
     files = []
     if os.path.isdir(path):
       for e in os.listdir(path):
@@ -271,19 +281,23 @@ class Periscoped(object):
       self.import_file(path, 0, force)
 
   def is_format_supported(self, path):
+    """Returns True if the file is a supported video format"""
     mimetype = mimetypes.guess_type(path)[0]
     return mimetype in self.supported_formats
 
   def import_file(self, path, next_in=0, force=False):
+    """Import a video file"""
     if self.is_format_supported(path):
       self.log.debug("Importing '%s'"%(path))
       self.save_file(path, next_in, not force)
 
 
   def get_short_filename(self, path):
+    """Returns the given path without extension"""
     return os.path.splitext(path)[0]
 
   def has_sub(self, path):
+    """Returns True if the file has a subtitle file"""
     basepath = self.get_short_filename(path)
     found=False
     langs=['',]+[''+l for l in self.langs]
@@ -295,6 +309,7 @@ class Periscoped(object):
     return found
         
   def is_sub(self, path):
+    """Returns True if the file is a subtitle file"""
     return path.endswith('.srt') or path.endswith('.sub')
 
   def save_file(self, path, next_in, upsert=True):
@@ -335,6 +350,7 @@ class Periscoped(object):
     self.recursive_import(lib_folder, force)
 
   def delete_file(self, path, ash=None):
+    """Delete the given path from local db"""
     self.log.info("Removing '%s' from local database"%(path))
     h=ash
     if h is None:
@@ -443,7 +459,7 @@ class Periscoped(object):
 
 
 def main():
-  '''Download subtitles'''
+  '''Main method'''
   # parse command line options
   parser = OptionParser("usage: %prog [options] [folder]", version = periscope.VERSION)
 
