@@ -160,9 +160,7 @@ class Periscoped(object):
     self.supported_formats = 'video/x-msvideo', 'video/quicktime', 'video/x-matroska', 'video/mp4'
     self.options=options
     self.init_logger()
-    self.log = log
-    if self.log is None:
-      self.log = logging.getLogger('periscoped')
+    self.log = self.getLogger(log)
     
     self.check_config() # Will raise an exception if cannot reach the configs file
     self.config.read(self.config_file())
@@ -173,7 +171,16 @@ class Periscoped(object):
     self.read_config()
     self.db=self.init_db()
     mimetypes.add_type("video/x-matroska", ".mkv")
-
+    
+  def getLogger(self, log):
+    """ Return the appropriate logger"""
+    ret=log
+    if ret is None:
+      if self.options.isDaemon == True:
+        ret = logging.getLogger('periscoped_daemon')
+      else:
+        ret = logging.getLogger('periscoped')
+    return ret
 
   def config_file(self):
     """Returns the custom main config file in ~/.config/periscope-daemon or the default distributed one."""
@@ -243,7 +250,7 @@ class Periscoped(object):
     if self.options.db_name is not None:
       db_name = self.options.db_name[0]
     full_dbname = "%s.%s"%(os.path.join(self.get_cache_folder(), db_name),'sqlite')
-    db = PeriscopedDb(full_dbname)
+    db = PeriscopedDb(full_dbname, self.log)
     return db
 
   def init_logger(self):
@@ -466,6 +473,7 @@ def main():
   parser.add_option("--cache-folder", action="store", type="string", dest="cache_folder", help="location of the periscope cache/config folder (default is ~/.config/periscope)")
   parser.add_option("--quiet", action="store_true", dest="quiet", help="run in quiet mode (only show warn and error messages)")
   parser.add_option("--debug", action="store_true", dest="debug", help="set the logging level to debug")
+
   parser.add_option("--db", action="append", dest="db_name", help="database name")
 
   parser.add_option("--import", action="append", dest="import_lib", help="import video library")
@@ -475,6 +483,7 @@ def main():
   parser.add_option("--watch", action="append", dest="watch", help="run the subtitle downloader")
   parser.add_option("--force", action="store_true", dest="force", help="force the operation")
 
+  parser.add_option("--daemon", action="store_true", dest="isDaemon", help="Run as a daemon")
 
   (options, args) = parser.parse_args()
 
