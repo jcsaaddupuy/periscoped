@@ -462,6 +462,7 @@ class Periscoped(object):
       self.log.info("Starting watch")
       self.watch(self.options.watch)
     if self.options.run:
+      self.log.info("Starting run")
       self.run()
 
 
@@ -471,8 +472,8 @@ def main():
   parser = OptionParser("usage: %prog [options] [folder]", version = periscope.VERSION)
 
   parser.add_option("--cache-folder", action="store", type="string", dest="cache_folder", help="location of the periscope cache/config folder (default is ~/.config/periscope)")
-  parser.add_option("--quiet", action="store_true", dest="quiet", help="run in quiet mode (only show warn and error messages)")
-  parser.add_option("--debug", action="store_true", dest="debug", help="set the logging level to debug")
+  parser.add_option("--quiet", action="store_true", dest="quiet", help="run in quiet mode (only show warn and error messages). This will override the whole logging configuration from the file 'logging.conf'.")
+  parser.add_option("--debug", action="store_true", dest="debug", help="set the logging level to debug. This will override the whole logging configuration from the file 'logging.conf'.")
 
   parser.add_option("--db", action="append", dest="db_name", help="database name")
 
