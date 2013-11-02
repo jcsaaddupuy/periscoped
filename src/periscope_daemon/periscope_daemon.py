@@ -462,6 +462,7 @@ class Periscoped(object):
       self.log.info("Starting watch")
       self.watch(self.options.watch)
     if self.options.run:
+      self.log.info("Starting run")
       self.run()
 
 
