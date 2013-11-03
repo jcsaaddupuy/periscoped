@@ -85,7 +85,7 @@ You will have to modify WATCHED_DIR in /etc/init.d/periscope-daemon and USER in 
 You will then be able to start/stop/restart/... it as a daemon :
 
 ```sh
-# /etc/init.d/periscope-daemon start
+$ sudo /etc/init.d/periscope-daemon start
 ```
 
 And watch for the log in /var/log/periscope-daemon/daemon.log:
