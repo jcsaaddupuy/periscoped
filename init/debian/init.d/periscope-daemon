@@ -1,0 +1,168 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:		periscope-daemon
+# Required-Start:	$local_fs $network $remote_fs
+# Required-Stop:	$local_fs $network $remote_fs
+# Default-Start:	2 3 4 5
+# Default-Stop:		0 1 6
+# Description:		Start periscope-daemon.
+# Short-Description:	Start periscope-daemon.
+### END INIT INFO
+
+
+
+# Author: Jean-Christophe Saad-Dupuy <saad.dupuy@gmail.com>
+
+# PATH should only include /usr/* if it runs after the mountnfs.sh script
+PATH=/usr/local/bin:/sbin:/usr/sbin:/bin:/usr/bin
+DESC="Subtitle downloader"
+NAME=periscope-daemon
+USER=periscope-daemon
+
+DAEMON="/usr/local/bin/$NAME"
+
+PIDFILE_RUN="/var/run/$NAME.run/pid"
+PIDFILE_WATCH="/var/run/$NAME.watch/pid"
+
+LOG_DIR="/var/log/periscope-daemon"
+
+DAEMON_OPTIONS=" --daemon"
+
+# Exit if the package is not installed
+[ -x "$DAEMON" ] || exit 0
+
+# Read configuration variable file if it is present
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.2-14) to ensure that this file is present
+# and status_of_proc is working.
+. /lib/lsb/init-functions
+
+#
+# Function that starts the daemon/service
+#
+do_start()
+{
+    log_daemon_msg "Starting $DESC" "$NAME "
+    # Return
+    #   0 if daemon has been started
+    #   1 if daemon was already running
+    #   2 if daemon could not be started
+    [ -e $PIDFILE_RUN ] && PID_RUN=$(cat "$PIDFILE_RUN")
+    if ( [ -e $PIDFILE_RUN ] && ps -p $PID_RUN 1>&2 > /dev/null )
+    then
+        log_action_end_msg 1 "already running, PID's $PID"
+        exit 0
+    elif ( [ -w $PIDFILE_RUN ] )
+    then
+        log_warning_msg "PID file found while ${NAME} is not running, removing file."
+        rm $PIDFILE_RUN
+    fi
+    [ -e $PIDFILE_WATCH ] && PID_WATCH=$(cat "$PIDFILE_WATCH")
+    if ( [ -e $PIDFILE_WATCH ] && ps -p $PID_WATCH 1>&2 > /dev/null )
+    then
+        log_action_end_msg 1 "already running, PID's $PID"
+        exit 0
+    elif ( [ -w $PIDFILE_WATCH ] )
+    then
+        log_warning_msg "PID file found while ${NAME} is not running, removing file."
+        rm $PIDFILE_WATCH
+    fi
+
+    # Controling presence of $PIDDIR_RUN
+    PIDDIR_RUN=$(dirname "$PIDFILE_RUN")
+    if [ ! -d "$PIDDIR_RUN" ]; then
+        mkdir -m 0755 -p $PIDDIR_RUN
+        chown $USER:$USER $PIDDIR_RUN
+    fi
+    # Controling presence of $PIDDIR_WATCH
+    PIDDIR_WATCH=$(dirname "$PIDFILE_WATCH")
+    if [ ! -d "$PIDDIR_WATCH" ]; then
+        mkdir -m 0755 -p $PIDDIR_WATCH
+        chown $USER:$USER $PIDDIR_WATCH
+    fi
+
+    # Controling presence of $LOG_DIR
+    if [ ! -d "$LOG_DIR" ]; then
+        mkdir -m 0755 -p $LOG_DIR
+        chown $USER:$USER $LOG_DIR
+    fi
+
+    log_daemon_msg "Starting Watcher"
+    start-stop-daemon --start -b --quiet --chuid $USER --make-pidfile --pidfile $PIDFILE_WATCH --exec $DAEMON -- $WATCH_OPTIONS $DAEMON_OPTIONS || return 2
+    log_action_end_msg 0 "OK"
+    log_daemon_msg "Starting Runner"
+    start-stop-daemon --start -b --quiet --chuid $USER --make-pidfile --pidfile $PIDFILE_RUN --exec $DAEMON -- $RUN_OPTIONS $DAEMON_OPTIONS || return 2
+    log_action_end_msg 0 "OK"
+    return 0
+}
+
+#
+# Function that stops the daemon/service
+#
+do_stop()
+{
+    log_daemon_msg "Stopping $DESC" "$NAME "
+    if ([ -w $PIDFILE_RUN ])
+    then 
+    	log_daemon_msg "Stoping Watcher"
+	start-stop-daemon --stop --oknodo --chuid $USER --user=$USER --pidfile="$PIDFILE_RUN" --retry=30 || return 1
+	rm $PIDFILE_RUN
+	log_action_end_msg 0 "OK"
+    fi
+    if ([ -w $PIDFILE_WATCH ])
+    then 
+    	log_daemon_msg "Stoping Runner"
+	start-stop-daemon --stop --oknodo --chuid $USER --user=$USER --pidfile="$PIDFILE_WATCH" --retry=30 || return 1
+	rm $PIDFILE_WATCH
+	log_action_end_msg 0 "OK"
+    fi
+
+    return 0
+}
+
+case "$1" in
+  start)
+    do_start
+    case "$?" in
+        0|1) log_end_msg 0 ;;
+        2) log_end_msg 1 ;;
+    esac
+    ;;
+  stop)
+    do_stop
+    case "$?" in
+        0) log_end_msg 0 ;;
+        1) log_end_msg 1 ;;
+    esac
+    ;;
+  status)
+    status_of_proc -p "$PIDFILE" "$DAEMON" "$NAME"
+    ;;
+  restart|force-reload)
+    do_stop
+    case "$?" in
+      0)
+        log_end_msg 0
+        do_start
+        case "$?" in
+            0) log_end_msg 0 ;;
+            *) log_end_msg 1 ;; # Failed to start
+        esac
+        ;;
+      *)
+        # Failed to stop
+        log_end_msg 1
+        ;;
+    esac
+    ;;
+  *)
+    echo "Usage: invoke-rc.d $NAME {start|stop|status|restart|force-reload}" >&2
+    exit 3
+    ;;
+esac

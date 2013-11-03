@@ -1,0 +1,46 @@
+## Defaults for the periscope-daemon init script, sourced by /etc/init.d/periscope-daemon
+## on Debian systems.  Comment and change values as needed.
+
+# Semicolon seperated directories to watch. YOU MUST PROVIDE A VALUE HERE
+#WATCHED_DIR="/home/hal900/videos/films;/home/hal900/videos/series"
+WATCHED_DIR=""
+
+# Enable this to enable library on statup. Will drasticly slow the startup.
+IMPORT_ON_STARTUP='true'
+#IMPORT_ON_STARTUP='false'
+
+# Enable this to enable purge of deleted files on statup.
+PURGE_ON_STARTUP='true'
+#PURGE_ON_STARTUP='false'
+
+
+
+################################################
+# Daemon options generation. do not edit unless
+# you know what you are doing. 
+################################################
+export OLD_IFS=$IFS
+export IFS=";"
+
+WATCH_OPTIONS=""
+for WATCHED in $WATCHED_DIR; do
+  WATCH_OPTIONS=$WATCH_OPTIONS"--watch $WATCHED "
+done
+
+IMPORT_OPTIONS=""
+for IMPORTED in $WATCHED_DIR; do
+  IMPORT_OPTIONS=$IMPORT_OPTIONS"--import $IMPORTED "
+done
+
+PURGE_OPTION="--purge"
+
+RUN_OPTIONS="--run"
+
+if [ x"$IMPORT_ON_STARTUP" == x"true" ]; then
+	WATCH_OPTIONS=$IMPORT_OPTIONS" "$WATCH_OPTIONS
+fi
+
+if [ x"$PURGE_ON_STARTUP" == x"true" ]; then
+	WATCH_OPTIONS=$PURGE_OPTION" "$WATCH_OPTIONS
+fi
+IFS=$OLD_IFS
